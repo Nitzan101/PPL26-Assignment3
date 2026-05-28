@@ -12,7 +12,7 @@ import { isProcTExp, makeBoolTExp, makeNumTExp, makeProcTExp, makeStrTExp, makeV
          makeFreshTVar as T,
          makeListTExp} from "./TExp";
 import { isEmpty, allT, first, rest, NonEmptyList, List, isNonEmptyList } from '../shared/list';
-import { Result, makeFailure, bind, makeOk, zipWithResult } from '../shared/result';
+import { Result, makeFailure, bind, makeOk, zipWithResult, mapResult, isFailure } from '../shared/result';
 import { parse as p } from "../shared/parser";
 import { format } from '../shared/format';
 
@@ -220,15 +220,30 @@ export const typeofLetrec = (exp: LetrecExp, tenv: TEnv): Result<TExp> => {
 export const typeofDefine = (exp: DefineExp, tenv: TEnv): Result<VoidTExp> => {
     const varType = exp.var.texp;
     const valType = typeofExp(exp.val, tenv);
-
     const equalTypes = bind(valType, (valType1: TExp) => checkEqualType(varType, valType1, exp));
     return bind(equalTypes, _ => makeOk(makeVoidTExp()));
 }
-
 
 // Purpose: compute the type of a program
 // Thread the TEnv through top-level expressions. A define extends the TEnv
 // for the expressions that follow it; the program type is the type of the
 // last expression.
-export const typeofProgram = (exp: Program, tenv: TEnv): Result<TExp> =>
-    makeFailure("HW3 2.2 - Implement this function");
+export const typeofProgram = (exp: Program, tenv: TEnv): Result<TExp> =>{
+    if (!isNonEmptyList<Exp>(exp.exps))
+        return makeFailure("Empty program");
+
+    const firstExp = first(exp.exps);
+    const restExps = rest(exp.exps);
+    const typeofFirstExp = typeofExp(firstExp, tenv);
+    
+    if (isEmpty(restExps))
+        return typeofFirstExp;
+
+    const restNonEmptyExps = restExps as NonEmptyList<Exp>;
+    if (isDefineExp(firstExp))
+        return bind(typeofFirstExp, _ => typeofProgram({tag: "Program", exps: restNonEmptyExps}, makeExtendTEnv([firstExp.var.var], [firstExp.var.texp], tenv)));
+    else
+        return bind(typeofFirstExp, _ => typeofProgram({tag: "Program", exps: restNonEmptyExps}, tenv));
+}
+
+
