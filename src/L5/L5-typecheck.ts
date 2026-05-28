@@ -103,12 +103,9 @@ export const typeofPrim = (p: PrimOp): Result<TExp> =>
     (p.op === 'string=?') ? makeOk(makeProcTExp([makeStrTExp(), makeStrTExp()] , makeBoolTExp())) :
     (p.op === 'display') ? makeOk(makeProcTExp([T()] , makeVoidTExp())) :
     (p.op === 'newline') ? makeOk(makeProcTExp([] , makeVoidTExp())) :
-    (p.op === 'cons') ?
-        makeFailure("HW3 3.1 - Implement this branch") :
-    (p.op === 'car') ?
-        makeFailure("HW3 3.1 - Implement this branch") :
-    (p.op === 'cdr') ?
-        makeFailure("HW3 3.1 - Implement this branch") :
+    (p.op === 'cons') ? makeOk(makeProcTExp([T(), makeListTExp(T())], makeListTExp(T()))) :
+    (p.op === 'car') ? makeOk(makeProcTExp([makeListTExp(T())], T())) :
+    (p.op === 'cdr') ? makeOk(makeProcTExp([makeListTExp(T())], makeListTExp(T()))) :
     makeFailure(`Primitive not yet implemented: ${p.op}`);
 
 // Purpose: compute the type of an if-exp
@@ -244,5 +241,3 @@ export const typeofProgram = (exp: Program, tenv: TEnv): Result<TExp> =>{
     else
         return bind(typeofFirstExp, _ => typeofProgram({tag: "Program", exps: restExps}, tenv));
 }
-
-
