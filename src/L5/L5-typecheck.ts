@@ -239,11 +239,10 @@ export const typeofProgram = (exp: Program, tenv: TEnv): Result<TExp> =>{
     if (isEmpty(restExps))
         return typeofFirstExp;
 
-    const restNonEmptyExps = restExps as NonEmptyList<Exp>;
     if (isDefineExp(firstExp))
-        return bind(typeofFirstExp, _ => typeofProgram({tag: "Program", exps: restNonEmptyExps}, makeExtendTEnv([firstExp.var.var], [firstExp.var.texp], tenv)));
+        return bind(typeofFirstExp, _ => typeofProgram({tag: "Program", exps: restExps}, makeExtendTEnv([firstExp.var.var], [firstExp.var.texp], tenv)));
     else
-        return bind(typeofFirstExp, _ => typeofProgram({tag: "Program", exps: restNonEmptyExps}, tenv));
+        return bind(typeofFirstExp, _ => typeofProgram({tag: "Program", exps: restExps}, tenv));
 }
 
 
