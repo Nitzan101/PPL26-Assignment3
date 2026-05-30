@@ -11,6 +11,8 @@ import { isEmpty, first, rest, cons, isNonEmptyList } from "../shared/list";
 import { parse as p } from "../shared/parser";
 import { format } from "../shared/format";
 import { isBoolean, isNumber, isString } from "../shared/type-predicates";
+import { makeLitExp } from "./L5-ast";
+import { TExp } from "./TExp";
 
 // ============================================================n
 // Pool ADT
@@ -77,10 +79,8 @@ export const expToPool = (exp: A.Exp): Pool => {
     const findVars = (e: A.Exp, pool: Pool): Pool =>
         A.isAtomicExp(e) ? extendPool(e, pool) :
         A.isProcExp(e) ? extendPool(e, reducePool(findVars, e.body, reducePoolVarDecls(extendPoolVarDecl, e.args, pool))) :
-        A.isLitExp(e) && V.isEmptySExp(e.val) ?
-            pool : // HW3 3.3.a - fix this branch
-        A.isLitExp(e) && V.isCompoundSExp(e.val) ?
-            pool : // HW3 3.3.a - fix this branch
+        A.isLitExp(e) && V.isEmptySExp(e.val) ? extendPool(e, pool) :
+        A.isLitExp(e) && V.isCompoundSExp(e.val) ? extendPool(e, findVars(makeLitExp(e.val.val1), findVars(makeLitExp(e.val.val2), pool))) :
         A.isCompoundExp(e) ? extendPool(e, reducePool(findVars, A.expComponents(e), pool)) :
         makeEmptyPool();
     return findVars(exp, makeEmptyPool());
@@ -138,10 +138,23 @@ export const makeEquationsFromExp = (exp: A.Exp, pool: Pool): Opt.Optional<Equat
                             Opt.mapv(Opt.bind(safeLast(exp.body), (last: A.CExp) => inPool(pool, last)), (ret: T.TExp) =>
                                 [makeEquation(left, T.makeProcTExp(R.map((vd) => vd. texp, exp.args), ret))])) :
     A.isLitExp(exp) ?
-        (V.isEmptySExp(exp.val) ?
-            Opt.makeNone() : // HW3 3.3.b - fix this branch
-        V.isCompoundSExp(exp.val) ?
-            Opt.makeNone() : // HW3 3.3.b - fix this branch
+    (V.isEmptySExp(exp.val) ? 
+        Opt.bind(inPool(pool, exp), (tExp: T.TExp) =>
+            Opt.mapv(inPool(pool, makeLitExp(exp.val)), (tEmpty: T.TExp) =>
+                [makeEquation(tExp, T.makeListTExp(tEmpty))]
+            )
+        ) :
+        V.isCompoundSExp(exp.val) ? 
+        Opt.bind(inPool(pool, exp), (tExp: T.TExp) =>
+            Opt.bind(inPool(pool, A.makeLitExp((exp.val as V.CompoundSExp).val1)), (tHead: T.TExp) =>
+                Opt.mapv(inPool(pool, A.makeLitExp((exp.val as V.CompoundSExp).val2)), (tTail: T.TExp) => [
+                    // Type(Tail) = List(Type(Head))
+                    makeEquation(tTail, T.makeListTExp(tHead)),
+                    // Type(exp) = List(Type(Head))
+                    makeEquation(tExp, T.makeListTExp(tHead))
+                ])
+            )
+        ) :
         isNumber(exp.val) ? Opt.mapv(inPool(pool, exp) , (left: T.TExp) =>
             [ makeEquation(left, T.makeNumTExp()) ]) :
         isBoolean(exp.val) ? Opt.mapv(inPool(pool, exp) , (left: T.TExp) =>
