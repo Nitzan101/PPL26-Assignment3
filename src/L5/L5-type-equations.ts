@@ -139,11 +139,9 @@ export const makeEquationsFromExp = (exp: A.Exp, pool: Pool): Opt.Optional<Equat
                                 [makeEquation(left, T.makeProcTExp(R.map((vd) => vd. texp, exp.args), ret))])) :
     A.isLitExp(exp) ?
     (V.isEmptySExp(exp.val) ? 
-        Opt.bind(inPool(pool, exp), (tExp: T.TExp) =>
-            Opt.mapv(inPool(pool, makeLitExp(exp.val)), (tEmpty: T.TExp) =>
-                [makeEquation(tExp, T.makeListTExp(tEmpty))]
-            )
-        ) :
+        Opt.mapv(inPool(pool, exp), (tExp: T.TExp) =>
+                [makeEquation(tExp, T.makeFreshTVar())]
+                ) :
         V.isCompoundSExp(exp.val) ? 
         Opt.bind(inPool(pool, exp), (tExp: T.TExp) =>
             Opt.bind(inPool(pool, A.makeLitExp((exp.val as V.CompoundSExp).val1)), (tHead: T.TExp) =>
@@ -251,13 +249,13 @@ const solve = (equations: Equation[], sub: S.Sub): Res.Result<S.Sub> => {
                 solve(R.concat(rest(equations), splitEquation(eq)), sub) :
            Res.makeFailure(`Equation contains incompatible types ${format(eq)}`);
 };
-
 // Signature: canUnify(equation)
 // Purpose: Compare the structure of the type expressions of the equation
 const canUnify = (eq: Equation): boolean =>
     T.isProcTExp(eq.left) && T.isProcTExp(eq.right) ?
         (eq.left.paramTEs.length === eq.right.paramTEs.length) :
-    // HW3 3.3.c - add missing branch
+    T.isListTExp(eq.left) && T.isListTExp(eq.right) ?
+        true :
     false;
 
 // Signature: splitEquation(equation)
@@ -275,5 +273,6 @@ const splitEquation = (eq: Equation): Equation[] =>
         R.zipWith(makeEquation,
                   cons(eq.left.returnTE, eq.left.paramTEs),
                   cons(eq.right.returnTE, eq.right.paramTEs)) :
-    // HW3 3.3.d - add missing branch
-    [];
+    T.isListTExp(eq.left) && T.isListTExp(eq.right) ?
+        [makeEquation(eq.left.itemTE, eq.right.itemTE)] :
+    []
